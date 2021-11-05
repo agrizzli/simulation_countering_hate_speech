@@ -35,8 +35,6 @@ globals [
   percentage_reposts_normal
   percentage_reposts_activist
 
-  ; Max amount hateful persons
-  max_percentage_hateful_persons
 ]
 
 persons-own [
@@ -111,7 +109,6 @@ to setup
   set percentage_reposts_hater 0
   set percentage_reposts_normal 0
   set percentage_reposts_activist 0
-  set max_percentage_hateful_persons 0
 
   ;; make the initial network of two persons and an edge
   make-node [] 0.4                ;; first node, unattached
@@ -128,7 +125,7 @@ to go
   ; Stops if society becomes to hateful.
   ; This is to protect against memory overflow,
   ; since amount of hateful posts might develop exponentially
-  ; if swap-to-hate [ stop ]
+  if swap-to-hate [ stop ]
 
   ; Stop if ticks exceeds simulation limits
   if ticks > dynamics_until_ticks and ticks > grow_until_size [ stop ]
@@ -390,17 +387,9 @@ to diffuse-opinions
         if activists_mode? and person-is-activist
         [
           ; Adapt activist property if hate score moved upwards
-          ifelse centrists_mode?
-          [
-            ifelse t_hate_score < hate_score_potential_activist or t_hate_score >= hate_score_potential_centrist
-            [ set t_is_activist? false ]
-            [ set color white ]
-          ]
-          [
-            ifelse t_hate_score >= hate_score_potential_activist
-            [ set t_is_activist? false ]
-            [ set color white ]
-          ]
+          ifelse t_hate_score >= hate_score_potential_activist
+          [ set t_is_activist? false ]
+          [ set color white ]
         ]
       ]
     ]
@@ -722,8 +711,8 @@ to convince-to-become-activist
     set t_is_activist? true
     set color white
 
-    ;; In case that person was picked from normals and we wanted someone from the extreme left, then adapt its hate score
-    if not person-is-potential-activist and person-is-normal and not centrists_mode?
+    ;; In case that person was picked from normals, adapt its hate score
+    if not person-is-potential-activist and person-is-normal
     [ set t_hate_score hate_score_potential_activist / 2 ]
 
     ;; Finally create new additional connections to other activists
@@ -764,26 +753,19 @@ to-report pick-activist
 
   ifelse select_activist_by_influence?
   [
-    ;; In centrist mode pick someone from the center rather then extreme left
-    ifelse centrists_mode?
-    [ set potential_activists (filter filter-person-is-potential-centrist influence_list) ]
-    [ set potential_activists (filter filter-person-is-potential-activist influence_list) ]
+    set potential_activists (filter filter-person-is-potential-activist influence_list)
 
     ;; In case there were no activist with low hate score, then pick some normal person and adapt its hate score
     if empty? potential_activists
     [ set potential_activists (filter filter-person-is-unusual-potential-activist influence_list) ]
   ]
   [
-    ;; In centrist mode pick someone from the center rather then extreme left
-    ifelse centrists_mode?
-    [ set potential_activists persons with [ person-is-potential-centrist ] ]
-    [ set potential_activists persons with [ person-is-potential-activist ] ]
+    set potential_activists persons with [ person-is-potential-activist ]
 
     ;; In case there were no activist with low hate score, then pick some normal person and adapt its hate score
     if not any? potential_activists
     [ set potential_activists persons with [ person-is-unusual-potential-activist ] ]
   ]
-
 
   report one-of potential_activists
 end
@@ -843,17 +825,6 @@ to-report filter-person-is-potential-activist [t]
   let t_is_potential_activist false
   ask t [
     if person-is-potential-activist [
-      set t_is_potential_activist true
-    ]
-  ]
-  report t_is_potential_activist
-end
-
-;; Filter persons who are potential centrist with low hate score but have not become activists yet
-to-report filter-person-is-potential-centrist [t]
-  let t_is_potential_activist false
-  ask t [
-    if person-is-potential-centrist [
       set t_is_potential_activist true
     ]
   ]
@@ -958,11 +929,6 @@ end
 ;; Report whether person might become activist but is not yet
 to-report person-is-potential-activist
   report t_hate_score < hate_score_potential_activist and not t_is_activist?
-end
-
-;; Report whether person might become centrist but is not yet
-to-report person-is-potential-centrist
-  report t_hate_score >= hate_score_potential_activist and t_hate_score < hate_score_potential_centrist and not t_is_activist?
 end
 
 ;; Report whether person could exceptionally become activist, although not with usual hate score
@@ -1282,15 +1248,7 @@ to-report list-activist-persons
 end
 
 to-report percents-hateful-persons
-  let p 100 * num-hateful-persons / count persons
-  if p > max_percentage_hateful_persons [
-    set max_percentage_hateful_persons p
-  ]
-  report p
-end
-
-to-report max-percents-hateful-persons
-  report max_percentage_hateful_persons
+  report 100 * num-hateful-persons / count persons
 end
 
 to-report percents-activist-persons
@@ -1986,7 +1944,7 @@ CHOOSER
 dynamics_until_ticks
 dynamics_until_ticks
 100 200 500 1000 1500 2000 2500 3000 3500 5000 6000 6500 10000 11000 20000 50000
-7
+11
 
 PLOT
 964
@@ -2016,7 +1974,7 @@ CHOOSER
 grow_until_size
 grow_until_size
 100 200 500 1000 1500 2000 2500 3000 3500 5000 6000 6500 10000 11000 20000 50000
-7
+11
 
 PLOT
 468
@@ -2081,9 +2039,9 @@ HORIZONTAL
 
 SLIDER
 1185
-240
+251
 1443
-273
+284
 p_normal_reposts_hater
 p_normal_reposts_hater
 0
@@ -2096,9 +2054,9 @@ HORIZONTAL
 
 SLIDER
 1183
-168
+179
 1442
-201
+212
 p_normal_reposts_normal
 p_normal_reposts_normal
 0
@@ -2111,9 +2069,9 @@ HORIZONTAL
 
 SLIDER
 1184
-203
+214
 1442
-236
+247
 p_hater_reposts_hater
 p_hater_reposts_hater
 0
@@ -2127,7 +2085,7 @@ HORIZONTAL
 TEXTBOX
 1188
 145
-1428
+1381
 191
 Probabilities of reposting content
 12
@@ -2176,9 +2134,9 @@ PENS
 
 SLIDER
 1185
-276
+287
 1442
-309
+320
 p_hater_reposts_normal
 p_hater_reposts_normal
 0
@@ -2214,7 +2172,7 @@ SWITCH
 223
 repost?
 repost?
-1
+0
 1
 -1000
 
@@ -2283,7 +2241,7 @@ repulsion
 repulsion
 1
 30
-29.0
+23.0
 1
 1
 NIL
@@ -2356,7 +2314,7 @@ CHOOSER
 dynamics_from_ticks
 dynamics_from_ticks
 0 100 200 500 1000 1500 2000 2500 3000 3500 5000 6000 6500 10000 11000 20000 50000
-6
+10
 
 SWITCH
 9
@@ -2591,9 +2549,9 @@ HORIZONTAL
 
 SLIDER
 1184
-392
+403
 1441
-425
+436
 max_reposts_by_haters
 max_reposts_by_haters
 0
@@ -2606,9 +2564,9 @@ HORIZONTAL
 
 SLIDER
 1183
-354
+365
 1441
-387
+398
 max_reposts_by_normals
 max_reposts_by_normals
 0
@@ -2640,10 +2598,10 @@ PENS
 "activist" 1.0 0 -16777216 true "" "if not activists_mode? or not plot? [ stop ]\nplot mean-following-activist false"
 
 TEXTBOX
-1190
-326
-1378
-345
+1189
+339
+1377
+358
 Repost constraints
 12
 0.0
@@ -2796,10 +2754,10 @@ Countemeasure 3
 1
 
 TEXTBOX
-1480
-145
-1668
-168
+1476
+186
+1664
+209
 Network growth
 12
 0.0
@@ -2812,30 +2770,30 @@ SWITCH
 97
 activists_mode?
 activists_mode?
-1
+0
 1
 -1000
 
 SLIDER
-1479
-242
-1756
-275
+1476
+281
+1753
+314
 n_following_conn_activist_additional
 n_following_conn_activist_additional
 0
 10
-1.0
+2.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1479
-282
-1757
-315
+1476
+321
+1754
+354
 p_activist_back_follows_activist
 p_activist_back_follows_activist
 0
@@ -2847,10 +2805,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1479
-204
-1756
-237
+1476
+243
+1753
+276
 p_convincing_to_become_activist
 p_convincing_to_become_activist
 0
@@ -2862,20 +2820,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-1480
-329
-1668
-352
+1477
+368
+1665
+391
 Opinion dynamics
 12
 0.0
 1
 
 SLIDER
-1479
-355
-1758
-388
+1476
+394
+1755
+427
 p_publish_post_activist
 p_publish_post_activist
 0
@@ -2887,25 +2845,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-1480
-396
-1760
-429
+1477
+435
+1757
+468
 p_activist_reposts_activist
 p_activist_reposts_activist
 0
 1
-0.4
+0.45
 0.05
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1480
-435
-1759
-468
+1477
+474
+1756
+507
 p_normal_reposts_activist
 p_normal_reposts_activist
 0
@@ -2917,10 +2875,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1480
-473
-1762
-506
+1477
+512
+1759
+545
 max_reposts_by_activists
 max_reposts_by_activists
 0
@@ -2932,10 +2890,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1483
-580
-1755
-613
+1477
+144
+1749
+177
 hate_score_potential_activist
 hate_score_potential_activist
 0
@@ -3023,51 +2981,15 @@ stubborn_activists?
 -1000
 
 SWITCH
-1479
-165
-1757
-198
-select_activist_by_influence?
-select_activist_by_influence?
-0
-1
--1000
-
-SWITCH
-1483
-541
-1755
-574
-centrists_mode?
-centrists_mode?
-1
-1
--1000
-
-SLIDER
-1483
-623
+1476
+204
 1754
-656
-hate_score_potential_centrist
-hate_score_potential_centrist
+237
+select_activist_by_influence?
+select_activist_by_influence?
 0
-0.75
-0.55
-0.05
 1
-NIL
-HORIZONTAL
-
-TEXTBOX
-1485
-518
-1635
-536
-Alternative mode
-12
-0.0
-1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -16048,909 +15970,6 @@ repeat 100 [ layout ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="select_activist_by_influence?">
       <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="validate_counter_activists_500_2000-4-pref-center" repetitions="100" runMetricsEveryStep="false">
-    <setup>setup</setup>
-    <go>go</go>
-    <exitCondition>swap-to-hate</exitCondition>
-    <metric>mean-follow-prob false false</metric>
-    <metric>mean-follow-prob true true</metric>
-    <metric>connection-density true</metric>
-    <metric>connection-density false</metric>
-    <metric>connections-percents true false</metric>
-    <metric>connections-percents false true</metric>
-    <metric>reciprocal-connections-percents false</metric>
-    <metric>reciprocal-connections-percents true</metric>
-    <metric>mean-follower-followee false</metric>
-    <metric>mean-follower-followee true</metric>
-    <metric>max-out-degree false</metric>
-    <metric>max-out-degree true</metric>
-    <metric>mean-following true false</metric>
-    <metric>mean-following true true</metric>
-    <metric>mean-following false false</metric>
-    <metric>mean-following false true</metric>
-    <metric>percents-persons-with-degree true true 0</metric>
-    <metric>percents-persons-with-degree true true 1</metric>
-    <metric>percents-persons-with-degree false true 0</metric>
-    <metric>percents-persons-with-degree false true 1</metric>
-    <metric>percents-hateful-persons</metric>
-    <metric>percents-hateful-posts</metric>
-    <metric>mean-path-length false</metric>
-    <metric>mean-path-length true</metric>
-    <metric>stddev-hate-score-dist</metric>
-    <metric>mean-hate-score</metric>
-    <metric>reposts-by-haters</metric>
-    <metric>reposts-by-normals</metric>
-    <metric>swap-to-hate</metric>
-    <metric>percents-activist-persons</metric>
-    <metric>mean-path-length-activist</metric>
-    <metric>percents-activist-posts</metric>
-    <enumeratedValueSet variable="plot?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="layout?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="diffuse?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="repost?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grow_until_size">
-      <value value="2000"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="dynamics_from_ticks">
-      <value value="500"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="dynamics_until_ticks">
-      <value value="2000"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="mixing_parameter">
-      <value value="0.05"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_form">
-      <value value="&quot;triangle&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_extreme">
-      <value value="0.01"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_high">
-      <value value="0.49"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_normal">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_hater">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_follows_hater">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_back_follows_hater">
-      <value value="0.4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_back_follows_hater">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_back_follows_normal">
-      <value value="0.8"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_back_follows_normal">
-      <value value="0.08"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_hater">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_normal">
-      <value value="0.2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_reposts_normal">
-      <value value="0.05"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_reposts_hater">
-      <value value="0.45"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_hater">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_normal">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_normals">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_haters">
-      <value value="6"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_hater">
-      <value value="0.75"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_dist_alpha">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_dist_lambda">
-      <value value="25"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_defer_hateful_post">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_repost_deferred_post">
-      <value value="0.5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="activists_mode?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_activist_back_follows_activist">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_activist">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_activist_reposts_activist">
-      <value value="0.45"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_activist">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_activists">
-      <value value="6"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_convincing_to_become_activist">
-      <value value="0.01"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_activist_additional">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="stubborn_activists?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="select_activist_by_influence?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_potential_centrist">
-      <value value="0.55"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="centrists_mode?">
-      <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="validate_counter_activists_1000_2500-4-pref-center" repetitions="100" runMetricsEveryStep="false">
-    <setup>setup</setup>
-    <go>go</go>
-    <exitCondition>swap-to-hate</exitCondition>
-    <metric>mean-follow-prob false false</metric>
-    <metric>mean-follow-prob true true</metric>
-    <metric>connection-density true</metric>
-    <metric>connection-density false</metric>
-    <metric>connections-percents true false</metric>
-    <metric>connections-percents false true</metric>
-    <metric>reciprocal-connections-percents false</metric>
-    <metric>reciprocal-connections-percents true</metric>
-    <metric>mean-follower-followee false</metric>
-    <metric>mean-follower-followee true</metric>
-    <metric>max-out-degree false</metric>
-    <metric>max-out-degree true</metric>
-    <metric>mean-following true false</metric>
-    <metric>mean-following true true</metric>
-    <metric>mean-following false false</metric>
-    <metric>mean-following false true</metric>
-    <metric>percents-persons-with-degree true true 0</metric>
-    <metric>percents-persons-with-degree true true 1</metric>
-    <metric>percents-persons-with-degree false true 0</metric>
-    <metric>percents-persons-with-degree false true 1</metric>
-    <metric>percents-hateful-persons</metric>
-    <metric>percents-hateful-posts</metric>
-    <metric>mean-path-length false</metric>
-    <metric>mean-path-length true</metric>
-    <metric>stddev-hate-score-dist</metric>
-    <metric>mean-hate-score</metric>
-    <metric>reposts-by-haters</metric>
-    <metric>reposts-by-normals</metric>
-    <metric>swap-to-hate</metric>
-    <metric>percents-activist-persons</metric>
-    <metric>mean-path-length-activist</metric>
-    <metric>percents-activist-posts</metric>
-    <enumeratedValueSet variable="plot?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="layout?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="diffuse?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="repost?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grow_until_size">
-      <value value="2500"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="dynamics_from_ticks">
-      <value value="1000"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="dynamics_until_ticks">
-      <value value="2500"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="mixing_parameter">
-      <value value="0.05"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_form">
-      <value value="&quot;triangle&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_extreme">
-      <value value="0.01"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_high">
-      <value value="0.49"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_normal">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_hater">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_follows_hater">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_back_follows_hater">
-      <value value="0.4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_back_follows_hater">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_back_follows_normal">
-      <value value="0.8"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_back_follows_normal">
-      <value value="0.08"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_hater">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_normal">
-      <value value="0.2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_reposts_normal">
-      <value value="0.05"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_reposts_hater">
-      <value value="0.45"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_hater">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_normal">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_normals">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_haters">
-      <value value="6"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_hater">
-      <value value="0.75"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_dist_alpha">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_dist_lambda">
-      <value value="25"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_defer_hateful_post">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_repost_deferred_post">
-      <value value="0.5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="activists_mode?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_activist_back_follows_activist">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_activist">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_activist_reposts_activist">
-      <value value="0.45"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_activist">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_activists">
-      <value value="6"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_convincing_to_become_activist">
-      <value value="0.01"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_activist_additional">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="stubborn_activists?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="select_activist_by_influence?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_potential_centrist">
-      <value value="0.55"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="centrists_mode?">
-      <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="validate_counter_activists_2000_3500-4-pref-center" repetitions="100" runMetricsEveryStep="false">
-    <setup>setup</setup>
-    <go>go</go>
-    <exitCondition>swap-to-hate</exitCondition>
-    <metric>mean-follow-prob false false</metric>
-    <metric>mean-follow-prob true true</metric>
-    <metric>connection-density true</metric>
-    <metric>connection-density false</metric>
-    <metric>connections-percents true false</metric>
-    <metric>connections-percents false true</metric>
-    <metric>reciprocal-connections-percents false</metric>
-    <metric>reciprocal-connections-percents true</metric>
-    <metric>mean-follower-followee false</metric>
-    <metric>mean-follower-followee true</metric>
-    <metric>max-out-degree false</metric>
-    <metric>max-out-degree true</metric>
-    <metric>mean-following true false</metric>
-    <metric>mean-following true true</metric>
-    <metric>mean-following false false</metric>
-    <metric>mean-following false true</metric>
-    <metric>percents-persons-with-degree true true 0</metric>
-    <metric>percents-persons-with-degree true true 1</metric>
-    <metric>percents-persons-with-degree false true 0</metric>
-    <metric>percents-persons-with-degree false true 1</metric>
-    <metric>percents-hateful-persons</metric>
-    <metric>percents-hateful-posts</metric>
-    <metric>mean-path-length false</metric>
-    <metric>mean-path-length true</metric>
-    <metric>stddev-hate-score-dist</metric>
-    <metric>mean-hate-score</metric>
-    <metric>reposts-by-haters</metric>
-    <metric>reposts-by-normals</metric>
-    <metric>swap-to-hate</metric>
-    <metric>percents-activist-persons</metric>
-    <metric>mean-path-length-activist</metric>
-    <metric>percents-activist-posts</metric>
-    <enumeratedValueSet variable="plot?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="layout?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="diffuse?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="repost?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grow_until_size">
-      <value value="3500"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="dynamics_from_ticks">
-      <value value="2000"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="dynamics_until_ticks">
-      <value value="3500"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="mixing_parameter">
-      <value value="0.05"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_form">
-      <value value="&quot;triangle&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_extreme">
-      <value value="0.01"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_high">
-      <value value="0.49"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_normal">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_hater">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_follows_hater">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_back_follows_hater">
-      <value value="0.4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_back_follows_hater">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_back_follows_normal">
-      <value value="0.8"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_back_follows_normal">
-      <value value="0.08"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_hater">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_normal">
-      <value value="0.2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_reposts_normal">
-      <value value="0.05"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_reposts_hater">
-      <value value="0.45"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_hater">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_normal">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_normals">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_haters">
-      <value value="6"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_hater">
-      <value value="0.75"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_dist_alpha">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_dist_lambda">
-      <value value="25"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_defer_hateful_post">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_repost_deferred_post">
-      <value value="0.5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="activists_mode?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_activist_back_follows_activist">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_activist">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_activist_reposts_activist">
-      <value value="0.45"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_activist">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_activists">
-      <value value="6"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_convincing_to_become_activist">
-      <value value="0.01"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_activist_additional">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="stubborn_activists?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="select_activist_by_influence?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_potential_centrist">
-      <value value="0.55"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="centrists_mode?">
-      <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="validate_counter_activists_5000_6500-4-pref-center" repetitions="100" runMetricsEveryStep="false">
-    <setup>setup</setup>
-    <go>go</go>
-    <exitCondition>swap-to-hate</exitCondition>
-    <metric>mean-follow-prob false false</metric>
-    <metric>mean-follow-prob true true</metric>
-    <metric>connection-density true</metric>
-    <metric>connection-density false</metric>
-    <metric>connections-percents true false</metric>
-    <metric>connections-percents false true</metric>
-    <metric>reciprocal-connections-percents false</metric>
-    <metric>reciprocal-connections-percents true</metric>
-    <metric>mean-follower-followee false</metric>
-    <metric>mean-follower-followee true</metric>
-    <metric>max-out-degree false</metric>
-    <metric>max-out-degree true</metric>
-    <metric>mean-following true false</metric>
-    <metric>mean-following true true</metric>
-    <metric>mean-following false false</metric>
-    <metric>mean-following false true</metric>
-    <metric>percents-persons-with-degree true true 0</metric>
-    <metric>percents-persons-with-degree true true 1</metric>
-    <metric>percents-persons-with-degree false true 0</metric>
-    <metric>percents-persons-with-degree false true 1</metric>
-    <metric>percents-hateful-persons</metric>
-    <metric>percents-hateful-posts</metric>
-    <metric>mean-path-length false</metric>
-    <metric>mean-path-length true</metric>
-    <metric>stddev-hate-score-dist</metric>
-    <metric>mean-hate-score</metric>
-    <metric>reposts-by-haters</metric>
-    <metric>reposts-by-normals</metric>
-    <metric>swap-to-hate</metric>
-    <metric>percents-activist-persons</metric>
-    <metric>mean-path-length-activist</metric>
-    <metric>percents-activist-posts</metric>
-    <enumeratedValueSet variable="plot?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="layout?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="diffuse?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="repost?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grow_until_size">
-      <value value="6500"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="dynamics_from_ticks">
-      <value value="5000"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="dynamics_until_ticks">
-      <value value="6500"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="mixing_parameter">
-      <value value="0.05"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_form">
-      <value value="&quot;triangle&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_extreme">
-      <value value="0.01"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_high">
-      <value value="0.49"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_normal">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_hater">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_follows_hater">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_back_follows_hater">
-      <value value="0.4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_back_follows_hater">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_back_follows_normal">
-      <value value="0.8"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_back_follows_normal">
-      <value value="0.08"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_hater">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_normal">
-      <value value="0.2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_reposts_normal">
-      <value value="0.05"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_reposts_hater">
-      <value value="0.45"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_hater">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_normal">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_normals">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_haters">
-      <value value="6"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_hater">
-      <value value="0.75"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_dist_alpha">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_dist_lambda">
-      <value value="25"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_defer_hateful_post">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_repost_deferred_post">
-      <value value="0.5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="activists_mode?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_activist_back_follows_activist">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_activist">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_activist_reposts_activist">
-      <value value="0.45"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_activist">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_activists">
-      <value value="6"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_convincing_to_become_activist">
-      <value value="0.01"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_activist_additional">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="stubborn_activists?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="select_activist_by_influence?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_potential_centrist">
-      <value value="0.55"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="centrists_mode?">
-      <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="validate_baseline_reposts_2000_3000_no_limits" repetitions="100" runMetricsEveryStep="false">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>mean-follow-prob false false</metric>
-    <metric>mean-follow-prob true true</metric>
-    <metric>connection-density true</metric>
-    <metric>connection-density false</metric>
-    <metric>connections-percents true false</metric>
-    <metric>connections-percents false true</metric>
-    <metric>reciprocal-connections-percents false</metric>
-    <metric>reciprocal-connections-percents true</metric>
-    <metric>mean-follower-followee false</metric>
-    <metric>mean-follower-followee true</metric>
-    <metric>max-out-degree false</metric>
-    <metric>max-out-degree true</metric>
-    <metric>mean-following true false</metric>
-    <metric>mean-following true true</metric>
-    <metric>mean-following false false</metric>
-    <metric>mean-following false true</metric>
-    <metric>percents-persons-with-degree true true 0</metric>
-    <metric>percents-persons-with-degree true true 1</metric>
-    <metric>percents-persons-with-degree false true 0</metric>
-    <metric>percents-persons-with-degree false true 1</metric>
-    <metric>percents-hateful-persons</metric>
-    <metric>max-percents-hateful-persons</metric>
-    <metric>percents-hateful-posts</metric>
-    <metric>mean-path-length false</metric>
-    <metric>mean-path-length true</metric>
-    <metric>stddev-hate-score-dist</metric>
-    <metric>mean-hate-score</metric>
-    <metric>reposts-by-haters</metric>
-    <metric>reposts-by-normals</metric>
-    <metric>swap-to-hate</metric>
-    <enumeratedValueSet variable="plot?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="layout?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="diffuse?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="repost?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grow_until_size">
-      <value value="3000"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="dynamics_from_ticks">
-      <value value="2000"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="dynamics_until_ticks">
-      <value value="3000"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="mixing_parameter">
-      <value value="0.05"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_form">
-      <value value="&quot;triangle&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_extreme">
-      <value value="0.01"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_high">
-      <value value="0.49"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_normal">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_hater">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_follows_hater">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_back_follows_hater">
-      <value value="0.4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_back_follows_hater">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_back_follows_normal">
-      <value value="0.8"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_back_follows_normal">
-      <value value="0.08"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_hater">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_normal">
-      <value value="0.2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_reposts_normal">
-      <value value="0.05"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_reposts_hater">
-      <value value="0.45"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_hater">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_normal">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_normals">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_haters">
-      <value value="6"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_dist_lambda">
-      <value value="25"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_hater">
-      <value value="0.75"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_dist_alpha">
-      <value value="10"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="validate_baseline_diffusion_2000_3000_no_limits" repetitions="100" runMetricsEveryStep="false">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>mean-follow-prob false false</metric>
-    <metric>mean-follow-prob true true</metric>
-    <metric>connection-density true</metric>
-    <metric>connection-density false</metric>
-    <metric>connections-percents true false</metric>
-    <metric>connections-percents false true</metric>
-    <metric>reciprocal-connections-percents false</metric>
-    <metric>reciprocal-connections-percents true</metric>
-    <metric>mean-follower-followee false</metric>
-    <metric>mean-follower-followee true</metric>
-    <metric>max-out-degree false</metric>
-    <metric>max-out-degree true</metric>
-    <metric>mean-following true false</metric>
-    <metric>mean-following true true</metric>
-    <metric>mean-following false false</metric>
-    <metric>mean-following false true</metric>
-    <metric>percents-persons-with-degree true true 0</metric>
-    <metric>percents-persons-with-degree true true 1</metric>
-    <metric>percents-persons-with-degree false true 0</metric>
-    <metric>percents-persons-with-degree false true 1</metric>
-    <metric>percents-hateful-persons</metric>
-    <metric>max-percents-hateful-persons</metric>
-    <metric>percents-hateful-posts</metric>
-    <metric>mean-path-length false</metric>
-    <metric>mean-path-length true</metric>
-    <metric>stddev-hate-score-dist</metric>
-    <metric>swap-to-hate</metric>
-    <enumeratedValueSet variable="plot?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="layout?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="diffuse?">
-      <value value="true"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="repost?">
-      <value value="false"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grow_until_size">
-      <value value="3000"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="dynamics_from_ticks">
-      <value value="2000"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="dynamics_until_ticks">
-      <value value="3000"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="mixing_parameter">
-      <value value="0.05"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_form">
-      <value value="&quot;triangle&quot;"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_extreme">
-      <value value="0.01"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="op_high">
-      <value value="0.49"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_normal">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="n_following_conn_hater">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_follows_hater">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_back_follows_hater">
-      <value value="0.4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_back_follows_hater">
-      <value value="0.9"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_back_follows_normal">
-      <value value="0.8"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_back_follows_normal">
-      <value value="0.08"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_hater">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_publish_post_normal">
-      <value value="0.2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_reposts_normal">
-      <value value="0.05"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_hater_reposts_hater">
-      <value value="0.45"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_hater">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="p_normal_reposts_normal">
-      <value value="0.15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_normals">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max_reposts_by_haters">
-      <value value="6"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_dist_lambda">
-      <value value="25"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_hater">
-      <value value="0.75"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="hate_score_dist_alpha">
-      <value value="10"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>
